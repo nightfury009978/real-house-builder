@@ -113,12 +113,12 @@
             <p><strong>Selected:</strong> <span id="tool-display" style="color: #ffca28;">None</span></p>
             <p><strong>Structural Integrity:</strong> <span id="stability-display" style="color: #00d2d3;">100%</span></p>
             <p><strong>Estate Value:</strong> ₹<span id="value-display">0</span></p>
-            <p><strong>Solar Power:</strong> <span id="power-display" style="color: #ffca28;">0 kW</span></p>
+            <p><strong>Time:</strong> <span id="time-display" style="color: #ffca28;">12:00 PM (Day)</span></p>
         </div>
 
         <div id="env-controls">
             <strong>Environment</strong>
-            <button class="env-btn" onclick="toggleSun()">☀️ Sun Position</button>
+            <button class="env-btn" onclick="toggleAutoClock()">⏰ Toggle Auto-Time</button>
             <button class="env-btn" style="background:#e67e22;" onclick="toggleWeather()">🌧️ Rain/Sun</button>
             <button class="env-btn" style="background:#c0392b;" onclick="resetSite()">🗑️ Reset Site</button>
         </div>
@@ -137,12 +137,40 @@
     </div>
 
     <script>
+        // Web Audio API Sound Synthesizer
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'build') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            } else if (type === 'delete') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(250, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.2);
+            }
+        }
+
         let budget = localStorage.getItem('house_budget') ? parseInt(localStorage.getItem('house_budget')) : 1000000000;
         let estateValue = localStorage.getItem('house_value') ? parseInt(localStorage.getItem('house_value')) : 0;
         let currentTool = null;
-        let sunState = 1;
+        let timeOfDay = 12; // 0 to 24 hours
+        let autoTimeRunning = false;
         let isRaining = false;
-        let solarPowerKW = parseInt(localStorage.getItem('house_power') || '0');
         let placedObjects = [];
 
         // 1. Scene, Camera, Renderer
@@ -215,13 +243,10 @@
 
         document.getElementById('budget-display').innerText = budget.toLocaleString('en-IN');
         document.getElementById('value-display').innerText = estateValue.toLocaleString('en-IN');
-        document.getElementById('power-display').innerText = solarPowerKW + " kW";
 
         function updateAnalytics() {
             let walls = placedObjects.filter(p => p.type === 'wall' || p.type === 'glass').length;
             let pillars = placedObjects.filter(p => p.type === 'pillar').length;
-            
-            // Simple realistic physics check: walls need at least some pillars/support
             let stability = 100;
             if (walls > 0 && pillars === 0) stability = 60;
             else if (walls > pillars * 3) stability = 80;
@@ -231,26 +256,38 @@
             stabEl.style.color = stability < 70 ? "#e74c3c" : (stability < 90 ? "#f39c12" : "#00d2d3");
         }
 
-        function toggleSun() {
-            sunState = (sunState % 3) + 1;
-            if (sunState === 1) {
-                sunLight.position.set(-20, 10, 15);
-                sunLight.color.setHex(0xffaa33);
-                scene.background.setHex(0xcc8855);
-                scene.fog.color.setHex(0xcc8855);
-                document.getElementById('sun-display').innerText = "15° (Morning)";
-            } else if (sunState === 2) {
-                sunLight.position.set(0, 30, 0);
-                sunLight.color.setHex(0xffffff);
+        function toggleAutoClock() {
+            autoTimeRunning = !autoTimeRunning;
+        }
+
+        function updateEnvironmentTime(delta) {
+            if (!autoTimeRunning) return;
+            timeOfDay += delta * 0.5; // Speed of time
+            if (timeOfDay >= 24) timeOfDay = 0;
+
+            let hours = Math.floor(timeOfDay);
+            let mins = Math.floor((timeOfDay - hours) * 60);
+            let timeStr = `${hours % 12 === 0 ? 12 : hours % 12}:${mins < 10 ? '0' : ''}${mins} ${hours >= 12 ? 'PM' : 'AM'}`;
+
+            // Adjust Sun Position & Colors based on hours
+            let sunAngle = (timeOfDay / 24) * Math.PI * 2;
+            sunLight.position.x = Math.cos(sunAngle) * 30;
+            sunLight.position.y = Math.sin(sunAngle) * 30;
+
+            if (timeOfDay >= 6 && timeOfDay < 18) {
+                // Daytime
                 scene.background.setHex(0x87ceeb);
                 scene.fog.color.setHex(0x87ceeb);
-                document.getElementById('sun-display').innerText = "90° (Noon)";
+                sunLight.intensity = 1.0;
+                document.getElementById('time-display').innerText = timeStr + " (Day)";
+                document.getElementById('time-display').style.color = "#ffca28";
             } else {
-                sunLight.position.set(20, 10, -15);
-                sunLight.color.setHex(0xff5500);
-                scene.background.setHex(0x332244);
-                scene.fog.color.setHex(0x332244);
-                document.getElementById('sun-display').innerText = "165° (Evening)";
+                // Nighttime (Windows glow yellow!)
+                scene.background.setHex(0x0b1d3a);
+                scene.fog.color.setHex(0x0b1d3a);
+                sunLight.intensity = 0.1;
+                document.getElementById('time-display').innerText = timeStr + " (Night)";
+                document.getElementById('time-display').style.color = "#00d2d3";
             }
         }
 
@@ -350,14 +387,10 @@
                     const hitMesh = intersects[0].object;
                     const index = placedObjects.findIndex(p => p.mesh === hitMesh);
                     if (index !== -1) {
+                        playSound('delete');
                         scene.remove(hitMesh);
                         budget += Math.floor(placedObjects[index].cost * 0.5);
                         estateValue -= placedObjects[index].cost;
-                        if (placedObjects[index].type === 'solar') {
-                            solarPowerKW -= 12;
-                            document.getElementById('power-display').innerText = solarPowerKW + " kW";
-                            localStorage.setItem('house_power', solarPowerKW);
-                        }
                         placedObjects.splice(index, 1);
                         document.getElementById('budget-display').innerText = budget.toLocaleString('en-IN');
                         document.getElementById('value-display').innerText = estateValue.toLocaleString('en-IN');
@@ -376,6 +409,7 @@
                     return;
                 }
 
+                playSound('build');
                 const point = intersects[0].point;
                 let geometry, material, mesh;
                 let snapX = Math.round(point.x);
@@ -399,9 +433,6 @@
                     geometry = new THREE.BoxGeometry(2.5, 0.2, 2.5);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.2, metalness: 0.8 });
                     hOffset = 2.1;
-                    solarPowerKW += 12;
-                    document.getElementById('power-display').innerText = solarPowerKW + " kW";
-                    localStorage.setItem('house_power', solarPowerKW);
                 } else if (currentTool.type === 'pool') {
                     geometry = new THREE.BoxGeometry(4, 0.8, 4);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.1, transparent: true, opacity: 0.8 });
@@ -434,8 +465,13 @@
         }
 
         // Animation Loop
-        function animate() {
+        let lastTime = 0;
+        function animate(timestamp) {
             requestAnimationFrame(animate);
+            let delta = (timestamp - lastTime) * 0.001;
+            lastTime = timestamp;
+
+            updateEnvironmentTime(isNaN(delta) ? 0.016 : delta);
 
             if (isRaining) {
                 const positions = rainSystem.geometry.attributes.position.array;
@@ -449,7 +485,7 @@
             controls.update();
             renderer.render(scene, camera);
         }
-        animate();
+        animate(0);
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
