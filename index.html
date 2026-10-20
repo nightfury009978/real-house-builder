@@ -12,15 +12,40 @@
             left: 15px;
             color: #ffffff;
             background: rgba(0, 0, 0, 0.85);
-            padding: 15px;
+            padding: 12px;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             max-width: 260px;
             pointer-events: none;
         }
-        h2 { margin: 0 0 8px 0; font-size: 16px; color: #ffca28; }
-        p { margin: 4px 0; font-size: 13px; }
+        h2 { margin: 0 0 6px 0; font-size: 15px; color: #ffca28; }
+        p { margin: 3px 0; font-size: 12px; }
         
+        #env-controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 10px;
+            border-radius: 8px;
+            color: white;
+            font-size: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+        .env-btn {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 5px;
+            width: 100%;
+        }
+        .env-btn:hover { background: #2ecc71; }
+
         #build-menu {
             position: absolute;
             bottom: 20px;
@@ -44,24 +69,11 @@
             font-weight: bold;
             font-size: 12px;
             text-align: center;
-            transition: 0.2s;
         }
         .build-btn.selected {
             border-color: #ffca28;
             background: #34495e;
             box-shadow: 0 0 8px #ffca28;
-        }
-        #instruction {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: rgba(0, 0, 0, 0.75);
-            color: #4caf50;
-            padding: 10px 15px;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: bold;
-            pointer-events: none;
         }
     </style>
     <!-- Three.js & OrbitControls -->
@@ -72,13 +84,20 @@
 
     <div id="ui-overlay">
         <h2>₹100 Cr House Builder</h2>
-        <p><strong>Budget:</strong> ₹<span id="budget-display">1,00,00,00,000</span></p>
-        <p><strong>Selected Tool:</strong> <span id="tool-display" style="color: #ffca28;">None</span></p>
-        <p><strong>Sun:</strong> 45° Angle (Clear)</p>
-        <p><strong>Water:</strong> 40 PSI Active</p>
+        <p><strong>Budget:</strong> ₹<span id="budget-display">99,48,00,000</span></p>
+        <p><strong>Selected:</strong> <span id="tool-display" style="color: #ffca28;">None</span></p>
+        <p><strong>Sun Angle:</strong> <span id="sun-display">45° (Clear)</span></p>
+        <p><strong>Weather:</strong> <span id="weather-display" style="color: #4cd137;">Sunny</span></p>
+        <p><strong>Water Pressure:</strong> <span id="water-display">40 PSI</span></p>
     </div>
 
-    <div id="instruction">Tap screen to place selected item</div>
+    <div id="env-controls">
+        <strong>Environment Sim</strong>
+        <p style="margin-top:5px;">Cycle Sun Angle:</p>
+        <button class="env-btn" onclick="toggleSun()">☀️ Change Sun Position</button>
+        <p style="margin-top:8px;">Weather State:</p>
+        <button class="env-btn" style="background:#e67e22;" onclick="toggleWeather()">🌧️ Toggle Rain/Sun</button>
+    </div>
 
     <div id="build-menu">
         <button id="btn-wall" class="build-btn" onclick="selectTool('wall', 500000, 0xdcdcdc)">🧱 Wall<br>₹5 Lakhs</button>
@@ -87,8 +106,10 @@
     </div>
 
     <script>
-        let budget = 1000000000; // ₹100 Crore
+        let budget = 994800000;
         let currentTool = null;
+        let sunState = 1; // 1: Morning, 2: Noon, 3: Evening
+        let isRaining = false;
 
         // 1. Scene, Camera, Renderer
         const scene = new THREE.Scene();
@@ -99,6 +120,7 @@
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
         // 2. Controls
@@ -106,32 +128,81 @@
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
 
-        // 3. Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        // 3. Lighting & Shadows
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
 
-        const sunLight = new THREE.DirectionalLight(0xffffff, 0.9);
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
         sunLight.position.set(15, 30, 15);
+        sunLight.castShadow = true;
         scene.add(sunLight);
 
         // 4. Ground plane
         const groundGeometry = new THREE.PlaneGeometry(30, 30);
-        const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x4caf50 });
+        const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x4caf50, roughness: 0.8 });
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
         ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
         scene.add(ground);
 
         const grid = new THREE.GridHelper(30, 30, 0xffffff, 0x2e7d32);
         grid.position.y = 0.01;
         scene.add(grid);
 
-        // 5. Preview Ghost Box (Shows where you are aiming)
+        // 5. Rain Particle System
+        const raindropCount = 500;
+        const rainGeometry = new THREE.BufferGeometry();
+        const rainPositions = [];
+        for (let i = 0; i < raindropCount; i++) {
+            rainPositions.push((Math.random() - 0.5) * 30, Math.random() * 20, (Math.random() - 0.5) * 30);
+        }
+        rainGeometry.setAttribute('position', new THREE.Float32BufferAttribute(rainPositions, 3));
+        const rainMaterial = new THREE.PointsMaterial({ color: 0xaaaaff, size: 0.15, transparent: true, opacity: 0.7 });
+        const rainSystem = new THREE.Points(rainGeometry, rainMaterial);
+        rainSystem.visible = false;
+        scene.add(rainSystem);
+
+        // Environmental Toggle Functions
+        function toggleSun() {
+            sunState = (sunState % 3) + 1;
+            if (sunState === 1) {
+                sunLight.position.set(-20, 10, 15);
+                sunLight.color.setHex(0xffaa33); // Golden Morning Sun
+                scene.background.setHex(0xcc8855);
+                document.getElementById('sun-display').innerText = "15° (Morning)";
+            } else if (sunState === 2) {
+                sunLight.position.set(0, 30, 0);
+                sunLight.color.setHex(0xffffff); // Direct Overhead Noon Sun
+                scene.background.setHex(0x87ceeb);
+                document.getElementById('sun-display').innerText = "90° (Noon)";
+            } else {
+                sunLight.position.set(20, 10, -15);
+                sunLight.color.setHex(0xff5500); // Sunset Orange
+                scene.background.setHex(0x332244);
+                document.getElementById('sun-display').innerText = "165° (Evening)";
+            }
+        }
+
+        function toggleWeather() {
+            isRaining = !isRaining;
+            rainSystem.visible = isRaining;
+            if (isRaining) {
+                document.getElementById('weather-display').innerText = "Heavy Rain";
+                document.getElementById('weather-display').style.color = "#00d2d3";
+                document.getElementById('water-display').innerText = "65 PSI (Tank Filling)";
+            } else {
+                document.getElementById('weather-display').innerText = "Sunny";
+                document.getElementById('weather-display').style.color = "#4cd137";
+                document.getElementById('water-display').innerText = "40 PSI";
+            }
+        }
+
+        // Preview Ghost Box
         const previewMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5 });
         let previewMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), previewMaterial);
         previewMesh.visible = false;
         scene.add(previewMesh);
 
-        // Raycasting setup for tap/click detection
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         let pointerDownTime = 0;
@@ -150,7 +221,6 @@
             document.getElementById(`btn-${type}`).classList.add('selected');
             document.getElementById('tool-display').innerText = type.toUpperCase();
 
-            // Update preview mesh shape based on selected tool
             if (type === 'wall') {
                 previewMesh.geometry.dispose();
                 previewMesh.geometry = new THREE.BoxGeometry(3, 2, 0.4);
@@ -164,10 +234,9 @@
             previewMesh.visible = true;
         }
 
-        function updatePointerPosition(event) {
+        window.addEventListener('pointermove', (event) => {
             let clientX = event.clientX || (event.touches && event.touches[0].clientX);
             let clientY = event.clientY || (event.touches && event.touches[0].clientY);
-            
             if (!clientX || !clientY) return;
 
             mouse.x = (clientX / window.innerWidth) * 2 - 1;
@@ -178,23 +247,15 @@
 
             if (intersects.length > 0 && currentTool) {
                 const point = intersects[0].point;
-                // Snap to nearest 1-unit grid coordinates
-                const snapX = Math.round(point.x);
-                const snapZ = Math.round(point.z);
-                
-                const heightOffset = currentTool.type === 'pool' ? -0.3 : (currentTool.type === 'wall' || currentTool.type === 'pillar' ? 1.5 : 0.5);
-                previewMesh.position.set(snapX, heightOffset, snapZ);
+                previewMesh.position.set(Math.round(point.x), currentTool.type === 'pool' ? -0.3 : 1.5, Math.round(point.z));
             }
-        }
+        });
 
-        window.addEventListener('pointermove', updatePointerPosition);
         window.addEventListener('pointerdown', () => { pointerDownTime = Date.now(); });
 
         window.addEventListener('pointerup', (event) => {
-            // Prevent placing when dragging the camera view (short tap vs long drag)
             if (Date.now() - pointerDownTime > 250) return;
-
-            if (!currentTool || event.target.closest('#build-menu')) return;
+            if (!currentTool || event.target.closest('#build-menu') || event.target.closest('#env-controls')) return;
 
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObject(ground);
@@ -206,9 +267,6 @@
                 }
 
                 const point = intersects[0].point;
-                const snapX = Math.round(point.x);
-                const snapZ = Math.round(point.z);
-
                 let geometry, material, mesh;
 
                 if (currentTool.type === 'wall') {
@@ -219,23 +277,32 @@
                     geometry = new THREE.BoxGeometry(4, 0.8, 4);
                 }
 
-                material = new THREE.MeshLambertMaterial({ color: currentTool.color });
+                material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.4 });
                 mesh = new THREE.Mesh(geometry, material);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
 
-                const heightOffset = currentTool.type === 'pool' ? -0.3 : 1.5;
-                mesh.position.set(snapX, heightOffset, snapZ);
-                
+                mesh.position.set(Math.round(point.x), currentTool.type === 'pool' ? -0.3 : 1.5, Math.round(point.z));
                 scene.add(mesh);
 
-                // Deduct cost
                 budget -= currentTool.cost;
                 document.getElementById('budget-display').innerText = budget.toLocaleString('en-IN');
             }
         });
 
-        // 6. Animation Loop
+        // 6. Animation Loop (Handles Rain & Rendering)
         function animate() {
             requestAnimationFrame(animate);
+
+            if (isRaining) {
+                const positions = rainSystem.geometry.attributes.position.array;
+                for (let i = 1; i < positions.length; i += 3) {
+                    positions[i] -= 0.5; // Rain fall speed
+                    if (positions[i] < 0) positions[i] = 20;
+                }
+                rainSystem.geometry.attributes.position.needsUpdate = true;
+            }
+
             controls.update();
             renderer.render(scene, camera);
         }
