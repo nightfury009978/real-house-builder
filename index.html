@@ -7,7 +7,6 @@
     <style>
         body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; user-select: none; touch-action: none; }
         
-        /* Top UI Header Bar */
         #top-bar {
             position: absolute;
             top: 10px;
@@ -27,7 +26,7 @@
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             pointer-events: auto;
-            max-width: 200px;
+            max-width: 210px;
         }
         h2 { margin: 0 0 4px 0; font-size: 14px; color: #ffca28; }
         p { margin: 2px 0; font-size: 11px; }
@@ -54,18 +53,33 @@
             font-size: 10px;
         }
 
-        #build-menu {
+        /* Scrollable Material Construction Toolbar */
+        #build-menu-container {
             position: absolute;
             bottom: 15px;
             left: 50%;
             transform: translateX(-50%);
+            width: 92%;
+            max-width: 500px;
             background: rgba(0, 0, 0, 0.85);
             padding: 8px;
-            border-radius: 10px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        #build-menu {
             display: flex;
             gap: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
-            z-index: 10;
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 4px;
+        }
+        #build-menu::-webkit-scrollbar {
+            height: 4px;
+        }
+        #build-menu::-webkit-scrollbar-thumb {
+            background: #ffca28;
+            border-radius: 4px;
         }
         .build-btn {
             background: #2c3e50;
@@ -77,6 +91,7 @@
             font-weight: bold;
             font-size: 11px;
             text-align: center;
+            flex: 0 0 auto;
         }
         .build-btn.selected {
             border-color: #ffca28;
@@ -98,6 +113,7 @@
             <p><strong>Sun:</strong> <span id="sun-display">45° (Clear)</span></p>
             <p><strong>Weather:</strong> <span id="weather-display" style="color: #4cd137;">Sunny</span></p>
             <p><strong>Water:</strong> <span id="water-display">40 PSI</span></p>
+            <p><strong>Solar Power:</strong> <span id="power-display" style="color: #ffca28;">0 kW</span></p>
         </div>
 
         <div id="env-controls">
@@ -107,10 +123,15 @@
         </div>
     </div>
 
-    <div id="build-menu">
-        <button id="btn-wall" class="build-btn" onclick="selectTool('wall', 500000, 0xdcdcdc)">🧱 Wall<br>₹5L</button>
-        <button id="btn-pillar" class="build-btn" onclick="selectTool('pillar', 200000, 0x555555)">🏛️ Pillar<br>₹2L</button>
-        <button id="btn-pool" class="build-btn" onclick="selectTool('pool', 2500000, 0x1e90ff)">🏊 Pool<br>₹25L</button>
+    <div id="build-menu-container">
+        <div id="build-menu">
+            <button id="btn-wall" class="build-btn" onclick="selectTool('wall', 500000, 0xdcdcdc)">🧱 Concrete Wall<br>₹5L</button>
+            <button id="btn-pillar" class="build-btn" onclick="selectTool('pillar', 200000, 0x555555)">🏛️ Pillar<br>₹2L</button>
+            <button id="btn-marble" class="build-btn" onclick="selectTool('marble', 1500000, 0xf5f5f5)">✨ Marble Floor<br>₹15L</button>
+            <button id="btn-glass" class="build-btn" onclick="selectTool('glass', 800000, 0x88ccff)">🪟 Glass Panel<br>₹8L</button>
+            <button id="btn-solar" class="build-btn" onclick="selectTool('solar', 3000000, 0x1a237e)">☀️ Solar Array<br>₹30L</button>
+            <button id="btn-pool" class="build-btn" onclick="selectTool('pool', 2500000, 0x1e90ff)">🏊 Luxury Pool<br>₹25L</button>
+        </div>
     </div>
 
     <script>
@@ -118,11 +139,12 @@
         let currentTool = null;
         let sunState = 1;
         let isRaining = false;
+        let solarPowerKW = 0;
 
         // 1. Scene, Camera, Renderer
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87ceeb);
-        scene.fog = new THREE.FogExp2(0x87ceeb, 0.015); // Fog hides edge of world seamlessly
+        scene.fog = new THREE.FogExp2(0x87ceeb, 0.015);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(12, 14, 18);
@@ -132,11 +154,11 @@
         renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        // 2. Controls - LOCKED TO PREVENT GOING BELOW GROUND
+        // 2. Controls
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevents camera from dipping under ground level!
+        controls.maxPolarAngle = Math.PI / 2 - 0.05;
 
         // 3. Lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -147,9 +169,7 @@
         sunLight.castShadow = true;
         scene.add(sunLight);
 
-        // 4. Ground Terrain (Infinite Horizon + Concrete/Soil Thickness)
-        
-        // Infinite Outer Horizon Landscape
+        // 4. Ground Terrain
         const outerGroundGeo = new THREE.PlaneGeometry(500, 500);
         const outerGroundMat = new THREE.MeshStandardMaterial({ color: 0x388e3c, roughness: 0.9 });
         const outerGround = new THREE.Mesh(outerGroundGeo, outerGroundMat);
@@ -158,18 +178,17 @@
         outerGround.receiveShadow = true;
         scene.add(outerGround);
 
-        // Main Construction Plot (30x30 lawn grid)
         const groundGeometry = new THREE.BoxGeometry(30, 2, 30);
         const groundMaterial = [
-            new THREE.MeshStandardMaterial({ color: 0x5d4037 }), // Dirt sides (soil block)
             new THREE.MeshStandardMaterial({ color: 0x5d4037 }),
-            new THREE.MeshStandardMaterial({ color: 0x4caf50, roughness: 0.8 }), // Green lawn top
+            new THREE.MeshStandardMaterial({ color: 0x5d4037 }),
+            new THREE.MeshStandardMaterial({ color: 0x4caf50, roughness: 0.8 }),
             new THREE.MeshStandardMaterial({ color: 0x5d4037 }),
             new THREE.MeshStandardMaterial({ color: 0x5d4037 }),
             new THREE.MeshStandardMaterial({ color: 0x5d4037 })
         ];
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.position.y = -1; // Top face rests exactly at y = 0
+        ground.position.y = -1;
         ground.receiveShadow = true;
         scene.add(ground);
 
@@ -227,14 +246,13 @@
             }
         }
 
-        // Invisible Raycast Floor Target at Y=0
         const raycastPlaneGeo = new THREE.PlaneGeometry(30, 30);
         const raycastPlaneMat = new THREE.MeshBasicMaterial({ visible: false });
         const raycastPlane = new THREE.Mesh(raycastPlaneGeo, raycastPlaneMat);
         raycastPlane.rotation.x = -Math.PI / 2;
         scene.add(raycastPlane);
 
-        // Preview Ghost Box
+        // Preview Mesh Setup
         const previewMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5 });
         let previewMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), previewMaterial);
         previewMesh.visible = false;
@@ -258,12 +276,19 @@
             document.getElementById(`btn-${type}`).classList.add('selected');
             document.getElementById('tool-display').innerText = type.toUpperCase();
 
-            if (type === 'wall') {
+            // Set preview geometries according to tool type
+            if (type === 'wall' || type === 'glass') {
                 previewMesh.geometry.dispose();
                 previewMesh.geometry = new THREE.BoxGeometry(3, 2, 0.4);
             } else if (type === 'pillar') {
                 previewMesh.geometry.dispose();
                 previewMesh.geometry = new THREE.CylinderGeometry(0.4, 0.4, 3, 16);
+            } else if (type === 'marble') {
+                previewMesh.geometry.dispose();
+                previewMesh.geometry = new THREE.BoxGeometry(3, 0.1, 3);
+            } else if (type === 'solar') {
+                previewMesh.geometry.dispose();
+                previewMesh.geometry = new THREE.BoxGeometry(2.5, 0.2, 2.5);
             } else if (type === 'pool') {
                 previewMesh.geometry.dispose();
                 previewMesh.geometry = new THREE.BoxGeometry(4, 0.8, 4);
@@ -284,7 +309,12 @@
 
             if (intersects.length > 0 && currentTool) {
                 const point = intersects[0].point;
-                previewMesh.position.set(Math.round(point.x), currentTool.type === 'pool' ? -0.3 : 1.0, Math.round(point.z));
+                let hOffset = 1.0;
+                if (currentTool.type === 'pool') hOffset = -0.3;
+                if (currentTool.type === 'marble') hOffset = 0.05;
+                if (currentTool.type === 'solar') hOffset = 2.1;
+                
+                previewMesh.position.set(Math.round(point.x), hOffset, Math.round(point.z));
             }
         });
 
@@ -292,7 +322,7 @@
 
         window.addEventListener('pointerup', (event) => {
             if (Date.now() - pointerDownTime > 250) return;
-            if (!currentTool || event.target.closest('#build-menu') || event.target.closest('#top-bar')) return;
+            if (!currentTool || event.target.closest('#build-menu-container') || event.target.closest('#top-bar')) return;
 
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObject(raycastPlane);
@@ -308,18 +338,36 @@
 
                 if (currentTool.type === 'wall') {
                     geometry = new THREE.BoxGeometry(3, 2, 0.4);
+                    material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.5 });
                 } else if (currentTool.type === 'pillar') {
                     geometry = new THREE.CylinderGeometry(0.4, 0.4, 3, 16);
+                    material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.3 });
+                } else if (currentTool.type === 'marble') {
+                    geometry = new THREE.BoxGeometry(3, 0.1, 3);
+                    material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.1, metalness: 0.1 });
+                } else if (currentTool.type === 'glass') {
+                    geometry = new THREE.BoxGeometry(3, 2, 0.4);
+                    material = new THREE.MeshStandardMaterial({ color: currentTool.color, transparent: true, opacity: 0.4, roughness: 0.1 });
+                } else if (currentTool.type === 'solar') {
+                    geometry = new THREE.BoxGeometry(2.5, 0.2, 2.5);
+                    material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.2, metalness: 0.8 });
+                    solarPowerKW += 12; // Each solar array adds 12 kW of green energy
+                    document.getElementById('power-display').innerText = solarPowerKW + " kW";
                 } else if (currentTool.type === 'pool') {
                     geometry = new THREE.BoxGeometry(4, 0.8, 4);
+                    material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.1, transparent: true, opacity: 0.8 });
                 }
 
-                material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.4 });
                 mesh = new THREE.Mesh(geometry, material);
                 mesh.castShadow = true;
                 mesh.receiveShadow = true;
 
-                mesh.position.set(Math.round(point.x), currentTool.type === 'pool' ? -0.3 : 1.0, Math.round(point.z));
+                let hOffset = 1.0;
+                if (currentTool.type === 'pool') hOffset = -0.3;
+                if (currentTool.type === 'marble') hOffset = 0.05;
+                if (currentTool.type === 'solar') hOffset = 2.1;
+
+                mesh.position.set(Math.round(point.x), hOffset, Math.round(point.z));
                 scene.add(mesh);
 
                 budget -= currentTool.cost;
