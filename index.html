@@ -112,6 +112,7 @@
             <p><strong>Budget:</strong> ₹<span id="budget-display">1,00,00,00,000</span></p>
             <p><strong>Selected:</strong> <span id="tool-display" style="color: #ffca28;">None</span></p>
             <p><strong>Structural Integrity:</strong> <span id="stability-display" style="color: #00d2d3;">100%</span></p>
+            <p><strong>Comfort Rating:</strong> <span id="comfort-display" style="color: #e84393;">0 Score</span></p>
             <p><strong>Estate Value:</strong> ₹<span id="value-display">0</span></p>
             <p><strong>Time:</strong> <span id="time-display" style="color: #ffca28;">12:00 PM (Day)</span></p>
         </div>
@@ -126,12 +127,15 @@
 
     <div id="build-menu-container">
         <div id="build-menu">
-            <button id="btn-wall" class="build-btn" onclick="selectTool('wall', 500000, 0xdcdcdc)">🧱 Concrete Wall<br>₹5L</button>
+            <button id="btn-wall" class="build-btn" onclick="selectTool('wall', 500000, 0xdcdcdc)">🧱 Wall<br>₹5L</button>
             <button id="btn-pillar" class="build-btn" onclick="selectTool('pillar', 200000, 0x555555)">🏛️ Pillar<br>₹2L</button>
             <button id="btn-marble" class="build-btn" onclick="selectTool('marble', 1500000, 0xf5f5f5)">✨ Marble Floor<br>₹15L</button>
             <button id="btn-glass" class="build-btn" onclick="selectTool('glass', 800000, 0x88ccff)">🪟 Glass Panel<br>₹8L</button>
+            <button id="btn-sofa" class="build-btn" onclick="selectTool('sofa', 300000, 0xd63031)">🛋️ Luxury Sofa<br>₹3L</button>
+            <button id="btn-bed" class="build-btn" onclick="selectTool('bed', 500000, 0x6c5ce7)">🛏️ King Bed<br>₹5L</button>
+            <button id="btn-kitchen" class="build-btn" onclick="selectTool('kitchen', 800000, 0x00cec9)">🍳 Kitchen Counter<br>₹8L</button>
             <button id="btn-solar" class="build-btn" onclick="selectTool('solar', 3000000, 0x1a237e)">☀️ Solar Array<br>₹30L</button>
-            <button id="btn-pool" class="build-btn" onclick="selectTool('pool', 2500000, 0x1e90ff)">🏊 Luxury Pool<br>₹25L</button>
+            <button id="btn-pool" class="build-btn" onclick="selectTool('pool', 2500000, 0x1e90ff)">🏊 Pool<br>₹25L</button>
             <button id="btn-eraser" class="build-btn eraser" onclick="selectTool('eraser', 0, 0x000000)">🧹 Demolish /<br>Eraser</button>
         </div>
     </div>
@@ -168,7 +172,7 @@
         let budget = localStorage.getItem('house_budget') ? parseInt(localStorage.getItem('house_budget')) : 1000000000;
         let estateValue = localStorage.getItem('house_value') ? parseInt(localStorage.getItem('house_value')) : 0;
         let currentTool = null;
-        let timeOfDay = 12; // 0 to 24 hours
+        let timeOfDay = 12;
         let autoTimeRunning = false;
         let isRaining = false;
         let placedObjects = [];
@@ -247,6 +251,8 @@
         function updateAnalytics() {
             let walls = placedObjects.filter(p => p.type === 'wall' || p.type === 'glass').length;
             let pillars = placedObjects.filter(p => p.type === 'pillar').length;
+            let furniture = placedObjects.filter(p => p.type === 'sofa' || p.type === 'bed' || p.type === 'kitchen' || p.type === 'pool').length;
+            
             let stability = 100;
             if (walls > 0 && pillars === 0) stability = 60;
             else if (walls > pillars * 3) stability = 80;
@@ -254,6 +260,9 @@
             const stabEl = document.getElementById('stability-display');
             stabEl.innerText = stability + "%";
             stabEl.style.color = stability < 70 ? "#e74c3c" : (stability < 90 ? "#f39c12" : "#00d2d3");
+
+            let comfortScore = furniture * 15 + placedObjects.filter(p => p.type === 'marble').length * 5;
+            document.getElementById('comfort-display').innerText = comfortScore + " Score";
         }
 
         function toggleAutoClock() {
@@ -262,27 +271,24 @@
 
         function updateEnvironmentTime(delta) {
             if (!autoTimeRunning) return;
-            timeOfDay += delta * 0.5; // Speed of time
+            timeOfDay += delta * 0.5;
             if (timeOfDay >= 24) timeOfDay = 0;
 
             let hours = Math.floor(timeOfDay);
             let mins = Math.floor((timeOfDay - hours) * 60);
             let timeStr = `${hours % 12 === 0 ? 12 : hours % 12}:${mins < 10 ? '0' : ''}${mins} ${hours >= 12 ? 'PM' : 'AM'}`;
 
-            // Adjust Sun Position & Colors based on hours
             let sunAngle = (timeOfDay / 24) * Math.PI * 2;
             sunLight.position.x = Math.cos(sunAngle) * 30;
             sunLight.position.y = Math.sin(sunAngle) * 30;
 
             if (timeOfDay >= 6 && timeOfDay < 18) {
-                // Daytime
                 scene.background.setHex(0x87ceeb);
                 scene.fog.color.setHex(0x87ceeb);
                 sunLight.intensity = 1.0;
                 document.getElementById('time-display').innerText = timeStr + " (Day)";
                 document.getElementById('time-display').style.color = "#ffca28";
             } else {
-                // Nighttime (Windows glow yellow!)
                 scene.background.setHex(0x0b1d3a);
                 scene.fog.color.setHex(0x0b1d3a);
                 sunLight.intensity = 0.1;
@@ -341,6 +347,15 @@
             } else if (type === 'marble') {
                 previewMesh.geometry.dispose();
                 previewMesh.geometry = new THREE.BoxGeometry(3, 0.1, 3);
+            } else if (type === 'sofa') {
+                previewMesh.geometry.dispose();
+                previewMesh.geometry = new THREE.BoxGeometry(2, 0.8, 1);
+            } else if (type === 'bed') {
+                previewMesh.geometry.dispose();
+                previewMesh.geometry = new THREE.BoxGeometry(2.2, 0.6, 2);
+            } else if (type === 'kitchen') {
+                previewMesh.geometry.dispose();
+                previewMesh.geometry = new THREE.BoxGeometry(2.5, 0.9, 0.8);
             } else if (type === 'solar') {
                 previewMesh.geometry.dispose();
                 previewMesh.geometry = new THREE.BoxGeometry(2.5, 0.2, 2.5);
@@ -364,10 +379,11 @@
                 const intersects = raycaster.intersectObject(raycastPlane);
                 if (intersects.length > 0) {
                     const point = intersects[0].point;
-                    let hOffset = 1.0;
+                    let hOffset = 0.4;
                     if (currentTool.type === 'pool') hOffset = -0.3;
                     if (currentTool.type === 'marble') hOffset = 0.05;
                     if (currentTool.type === 'solar') hOffset = 2.1;
+                    if (currentTool.type === 'wall' || currentTool.type === 'glass' || currentTool.type === 'pillar') hOffset = 1.0;
                     previewMesh.position.set(Math.round(point.x), hOffset, Math.round(point.z));
                 }
             }
@@ -414,14 +430,16 @@
                 let geometry, material, mesh;
                 let snapX = Math.round(point.x);
                 let snapZ = Math.round(point.z);
-                let hOffset = 1.0;
+                let hOffset = 0.4;
 
                 if (currentTool.type === 'wall') {
                     geometry = new THREE.BoxGeometry(3, 2, 0.4);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.5 });
+                    hOffset = 1.0;
                 } else if (currentTool.type === 'pillar') {
                     geometry = new THREE.CylinderGeometry(0.4, 0.4, 3, 16);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.3 });
+                    hOffset = 1.0;
                 } else if (currentTool.type === 'marble') {
                     geometry = new THREE.BoxGeometry(3, 0.1, 3);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.1 });
@@ -429,6 +447,16 @@
                 } else if (currentTool.type === 'glass') {
                     geometry = new THREE.BoxGeometry(3, 2, 0.4);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, transparent: true, opacity: 0.4, roughness: 0.1 });
+                    hOffset = 1.0;
+                } else if (currentTool.type === 'sofa') {
+                    geometry = new THREE.BoxGeometry(2, 0.8, 1);
+                    material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.8 });
+                } else if (currentTool.type === 'bed') {
+                    geometry = new THREE.BoxGeometry(2.2, 0.6, 2);
+                    material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.6 });
+                } else if (currentTool.type === 'kitchen') {
+                    geometry = new THREE.BoxGeometry(2.5, 0.9, 0.8);
+                    material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.2, metalness: 0.3 });
                 } else if (currentTool.type === 'solar') {
                     geometry = new THREE.BoxGeometry(2.5, 0.2, 2.5);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.2, metalness: 0.8 });
