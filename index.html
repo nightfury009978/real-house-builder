@@ -26,7 +26,7 @@
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             pointer-events: auto;
-            max-width: 210px;
+            max-width: 220px;
         }
         h2 { margin: 0 0 4px 0; font-size: 14px; color: #ffca28; }
         p { margin: 2px 0; font-size: 11px; }
@@ -109,10 +109,10 @@
     <div id="top-bar">
         <div id="ui-overlay">
             <h2>₹100 Cr House Builder</h2>
-            <p><strong>Budget:</strong> ₹<span id="budget-display">99,48,00,000</span></p>
+            <p><strong>Budget:</strong> ₹<span id="budget-display">1,00,00,00,000</span></p>
             <p><strong>Selected:</strong> <span id="tool-display" style="color: #ffca28;">None</span></p>
-            <p><strong>Sun:</strong> <span id="sun-display">45° (Clear)</span></p>
-            <p><strong>Weather:</strong> <span id="weather-display" style="color: #4cd137;">Sunny</span></p>
+            <p><strong>Structural Integrity:</strong> <span id="stability-display" style="color: #00d2d3;">100%</span></p>
+            <p><strong>Estate Value:</strong> ₹<span id="value-display">0</span></p>
             <p><strong>Solar Power:</strong> <span id="power-display" style="color: #ffca28;">0 kW</span></p>
         </div>
 
@@ -138,6 +138,7 @@
 
     <script>
         let budget = localStorage.getItem('house_budget') ? parseInt(localStorage.getItem('house_budget')) : 1000000000;
+        let estateValue = localStorage.getItem('house_value') ? parseInt(localStorage.getItem('house_value')) : 0;
         let currentTool = null;
         let sunState = 1;
         let isRaining = false;
@@ -213,7 +214,22 @@
         scene.add(rainSystem);
 
         document.getElementById('budget-display').innerText = budget.toLocaleString('en-IN');
+        document.getElementById('value-display').innerText = estateValue.toLocaleString('en-IN');
         document.getElementById('power-display').innerText = solarPowerKW + " kW";
+
+        function updateAnalytics() {
+            let walls = placedObjects.filter(p => p.type === 'wall' || p.type === 'glass').length;
+            let pillars = placedObjects.filter(p => p.type === 'pillar').length;
+            
+            // Simple realistic physics check: walls need at least some pillars/support
+            let stability = 100;
+            if (walls > 0 && pillars === 0) stability = 60;
+            else if (walls > pillars * 3) stability = 80;
+
+            const stabEl = document.getElementById('stability-display');
+            stabEl.innerText = stability + "%";
+            stabEl.style.color = stability < 70 ? "#e74c3c" : (stability < 90 ? "#f39c12" : "#00d2d3");
+        }
 
         function toggleSun() {
             sunState = (sunState % 3) + 1;
@@ -329,14 +345,14 @@
             raycaster.setFromCamera(mouse, camera);
 
             if (currentTool.type === 'eraser') {
-                // Click to delete object
                 const intersects = raycaster.intersectObjects(placedObjects.map(p => p.mesh));
                 if (intersects.length > 0) {
                     const hitMesh = intersects[0].object;
                     const index = placedObjects.findIndex(p => p.mesh === hitMesh);
                     if (index !== -1) {
                         scene.remove(hitMesh);
-                        budget += Math.floor(placedObjects[index].cost * 0.5); // 50% refund
+                        budget += Math.floor(placedObjects[index].cost * 0.5);
+                        estateValue -= placedObjects[index].cost;
                         if (placedObjects[index].type === 'solar') {
                             solarPowerKW -= 12;
                             document.getElementById('power-display').innerText = solarPowerKW + " kW";
@@ -344,7 +360,10 @@
                         }
                         placedObjects.splice(index, 1);
                         document.getElementById('budget-display').innerText = budget.toLocaleString('en-IN');
+                        document.getElementById('value-display').innerText = estateValue.toLocaleString('en-IN');
                         localStorage.setItem('house_budget', budget);
+                        localStorage.setItem('house_value', estateValue);
+                        updateAnalytics();
                     }
                 }
                 return;
@@ -398,8 +417,12 @@
                 placedObjects.push({ mesh: mesh, type: currentTool.type, cost: currentTool.cost });
 
                 budget -= currentTool.cost;
+                estateValue += currentTool.cost;
                 document.getElementById('budget-display').innerText = budget.toLocaleString('en-IN');
+                document.getElementById('value-display').innerText = estateValue.toLocaleString('en-IN');
                 localStorage.setItem('house_budget', budget);
+                localStorage.setItem('house_value', estateValue);
+                updateAnalytics();
             }
         });
 
