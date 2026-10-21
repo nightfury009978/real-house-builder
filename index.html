@@ -55,6 +55,28 @@
             font-size: 10px;
         }
 
+        #floor-selector {
+            display: flex;
+            gap: 4px;
+            margin-top: 4px;
+        }
+        .floor-btn {
+            background: #34495e;
+            color: white;
+            border: 1px solid #7f8c8d;
+            padding: 4px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+            flex: 1;
+            font-weight: bold;
+        }
+        .floor-btn.active {
+            background: #f1c40f;
+            color: #000;
+            border-color: #f39c12;
+        }
+
         #build-menu-container {
             position: absolute;
             bottom: 15px;
@@ -122,6 +144,11 @@
 
         <div id="env-controls">
             <strong>Environment</strong>
+            <div id="floor-selector">
+                <button class="floor-btn active" onclick="setFloorLevel(0, this)">G-Flr</button>
+                <button class="floor-btn" onclick="setFloorLevel(2.0, this)">1st-Flr</button>
+                <button class="floor-btn" onclick="setFloorLevel(4.0, this)">2nd-Flr</button>
+            </div>
             <button class="env-btn" onclick="toggleAutoClock()">⏰ Toggle Auto-Time</button>
             <button class="env-btn" style="background:#e67e22;" onclick="toggleWeather()">🌧️ Rain/Sun</button>
             <button class="env-btn" style="background:#c0392b;" onclick="resetSite()">🗑️ Reset Site</button>
@@ -178,6 +205,7 @@
         let budget = localStorage.getItem('house_budget') ? parseInt(localStorage.getItem('house_budget')) : 1000000000;
         let estateValue = localStorage.getItem('house_value') ? parseInt(localStorage.getItem('house_value')) : 0;
         let currentTool = null;
+        let activeFloorElevation = 0; // Current active floor height
         let timeOfDay = 12;
         let autoTimeRunning = false;
         let isRaining = false;
@@ -249,6 +277,12 @@
         document.getElementById('budget-display').innerText = budget.toLocaleString('en-IN');
         document.getElementById('value-display').innerText = estateValue.toLocaleString('en-IN');
 
+        function setFloorLevel(height, btn) {
+            activeFloorElevation = height;
+            document.querySelectorAll('.floor-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
         function updateAnalytics() {
             let walls = placedObjects.filter(p => p.type === 'wall' || p.type === 'glass').length;
             let pillars = placedObjects.filter(p => p.type === 'pillar').length;
@@ -270,19 +304,16 @@
             let comfortScore = furniture * 15 + placedObjects.filter(p => p.type === 'marble').length * 5 + hvac * 25;
             document.getElementById('comfort-display').innerText = comfortScore + " Score";
 
-            // Water Pressure Calculation
             let psi = tanks * 35 + pipes * 5;
             if (isRaining && tanks > 0) psi += 20;
             document.getElementById('water-display').innerText = psi + " PSI";
 
-            // Electrical Grid Calculation
             let powerSupplyKW = generators * 50 + solar * 15;
             let powerDemandKW = hvac * 12 + furniture * 3 + tanks * 5;
             const pwrEl = document.getElementById('power-display');
             pwrEl.innerText = `${powerDemandKW} / ${powerSupplyKW} kW`;
             pwrEl.style.color = powerDemandKW > powerSupplyKW ? "#e74c3c" : "#f1c40f";
 
-            // Air Temp & HVAC Physics Calculation
             let baseTemp = isRaining ? 22 : 32;
             let cooledTemp = Math.max(18, baseTemp - hvac * 4);
             const airEl = document.getElementById('air-display');
@@ -417,13 +448,13 @@
                 const intersects = raycaster.intersectObject(raycastPlane);
                 if (intersects.length > 0) {
                     const point = intersects[0].point;
-                    let hOffset = 0.4;
+                    let hOffset = activeFloorElevation + 0.4;
                     if (currentTool.type === 'pool') hOffset = -0.3;
-                    if (currentTool.type === 'pipe') hOffset = 0.05;
-                    if (currentTool.type === 'marble') hOffset = 0.05;
-                    if (currentTool.type === 'tank' || currentTool.type === 'generator' || currentTool.type === 'hvac') hOffset = 0.6;
-                    if (currentTool.type === 'solar') hOffset = 2.1;
-                    if (currentTool.type === 'wall' || currentTool.type === 'glass' || currentTool.type === 'pillar') hOffset = 1.0;
+                    if (currentTool.type === 'pipe') hOffset = activeFloorElevation + 0.05;
+                    if (currentTool.type === 'marble') hOffset = activeFloorElevation + 0.05;
+                    if (currentTool.type === 'tank' || currentTool.type === 'generator' || currentTool.type === 'hvac') hOffset = activeFloorElevation + 0.6;
+                    if (currentTool.type === 'solar') hOffset = activeFloorElevation + 2.1;
+                    if (currentTool.type === 'wall' || currentTool.type === 'glass' || currentTool.type === 'pillar') hOffset = activeFloorElevation + 1.0;
                     previewMesh.position.set(Math.round(point.x), hOffset, Math.round(point.z));
                 }
             }
@@ -470,24 +501,24 @@
                 let geometry, material, mesh;
                 let snapX = Math.round(point.x);
                 let snapZ = Math.round(point.z);
-                let hOffset = 0.4;
+                let hOffset = activeFloorElevation + 0.4;
 
                 if (currentTool.type === 'wall') {
                     geometry = new THREE.BoxGeometry(3, 2, 0.4);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.5 });
-                    hOffset = 1.0;
+                    hOffset = activeFloorElevation + 1.0;
                 } else if (currentTool.type === 'pillar') {
                     geometry = new THREE.CylinderGeometry(0.4, 0.4, 3, 16);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.3 });
-                    hOffset = 1.0;
+                    hOffset = activeFloorElevation + 1.0;
                 } else if (currentTool.type === 'marble') {
                     geometry = new THREE.BoxGeometry(3, 0.1, 3);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.1 });
-                    hOffset = 0.05;
+                    hOffset = activeFloorElevation + 0.05;
                 } else if (currentTool.type === 'glass') {
                     geometry = new THREE.BoxGeometry(3, 2, 0.4);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, transparent: true, opacity: 0.4, roughness: 0.1 });
-                    hOffset = 1.0;
+                    hOffset = activeFloorElevation + 1.0;
                 } else if (currentTool.type === 'sofa') {
                     geometry = new THREE.BoxGeometry(2, 0.8, 1);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.8 });
@@ -500,23 +531,23 @@
                 } else if (currentTool.type === 'tank') {
                     geometry = new THREE.CylinderGeometry(1, 1, 2, 16);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.2, metalness: 0.5 });
-                    hOffset = 1.0;
+                    hOffset = activeFloorElevation + 1.0;
                 } else if (currentTool.type === 'pipe') {
                     geometry = new THREE.CylinderGeometry(0.1, 0.1, 3, 8);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.1, metalness: 0.8 });
-                    hOffset = 0.05;
+                    hOffset = activeFloorElevation + 0.05;
                 } else if (currentTool.type === 'generator') {
                     geometry = new THREE.BoxGeometry(2, 1.2, 1.5);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.4, metalness: 0.6 });
-                    hOffset = 0.6;
+                    hOffset = activeFloorElevation + 0.6;
                 } else if (currentTool.type === 'hvac') {
                     geometry = new THREE.BoxGeometry(1.8, 1.2, 1.2);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.3, metalness: 0.5 });
-                    hOffset = 0.6;
+                    hOffset = activeFloorElevation + 0.6;
                 } else if (currentTool.type === 'solar') {
                     geometry = new THREE.BoxGeometry(2.5, 0.2, 2.5);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.2, metalness: 0.8 });
-                    hOffset = 2.1;
+                    hOffset = activeFloorElevation + 2.1;
                 } else if (currentTool.type === 'pool') {
                     geometry = new THREE.BoxGeometry(4, 0.8, 4);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.1, transparent: true, opacity: 0.8 });
