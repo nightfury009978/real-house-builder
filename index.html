@@ -159,18 +159,20 @@
         <div id="build-menu">
             <button id="btn-wall" class="build-btn" onclick="selectTool('wall', 500000, 0xdcdcdc)">🧱 Wall<br>₹5L</button>
             <button id="btn-pillar" class="build-btn" onclick="selectTool('pillar', 200000, 0x555555)">🏛️ Pillar<br>₹2L</button>
-            <button id="btn-marble" class="build-btn" onclick="selectTool('marble', 1500000, 0xf5f5f5)">✨ Marble Floor<br>₹15L</button>
-            <button id="btn-glass" class="build-btn" onclick="selectTool('glass', 800000, 0x88ccff)">🪟 Glass Panel<br>₹8L</button>
+            <button id="btn-marble" class="build-btn" onclick="selectTool('marble', 1500000, 0xf5f5f5)">✨ Marble<br>₹15L</button>
+            <button id="btn-glass" class="build-btn" onclick="selectTool('glass', 800000, 0x88ccff)">🪟 Glass<br>₹8L</button>
+            <button id="btn-light" class="build-btn" onclick="selectTool('light', 100000, 0xf1c40f)">💡 Lamp<br>₹1L</button>
             <button id="btn-sofa" class="build-btn" onclick="selectTool('sofa', 300000, 0xd63031)">🛋️ Sofa<br>₹3L</button>
             <button id="btn-bed" class="build-btn" onclick="selectTool('bed', 500000, 0x6c5ce7)">🛏️ Bed<br>₹5L</button>
             <button id="btn-kitchen" class="build-btn" onclick="selectTool('kitchen', 800000, 0x00cec9)">🍳 Kitchen<br>₹8L</button>
-            <button id="btn-tank" class="build-btn" onclick="selectTool('tank', 400000, 0x0984e3)">🚰 Water Tank<br>₹4L</button>
-            <button id="btn-pipe" class="build-btn" onclick="selectTool('pipe', 50000, 0x74b9ff)">🔧 Pipe Line<br>₹50K</button>
-            <button id="btn-generator" class="build-btn" onclick="selectTool('generator', 1000000, 0xd35400)">⚡ Power Gen<br>₹10L</button>
-            <button id="btn-hvac" class="build-btn" onclick="selectTool('hvac', 1200000, 0x16a085)">❄️ HVAC AC<br>₹12L</button>
+            <button id="btn-tank" class="build-btn" onclick="selectTool('tank', 400000, 0x0984e3)">🚰 Tank<br>₹4L</button>
+            <button id="btn-pipe" class="build-btn" onclick="selectTool('pipe', 50000, 0x74b9ff)">🔧 Pipe<br>₹50K</button>
+            <button id="btn-generator" class="build-btn" onclick="selectTool('generator', 1000000, 0xd35400)">⚡ Gen<br>₹10L</button>
+            <button id="btn-hvac" class="build-btn" onclick="selectTool('hvac', 1200000, 0x16a085)">❄️ HVAC<br>₹12L</button>
             <button id="btn-solar" class="build-btn" onclick="selectTool('solar', 3000000, 0x1a237e)">☀️ Solar<br>₹30L</button>
-            <button id="btn-tree" class="build-btn" onclick="selectTool('tree', 200000, 0x27ae60)">🌳 Palm Tree<br>₹2L</button>
+            <button id="btn-tree" class="build-btn" onclick="selectTool('tree', 200000, 0x27ae60)">🌳 Tree<br>₹2L</button>
             <button id="btn-driveway" class="build-btn" onclick="selectTool('driveway', 300000, 0x7f8c8d)">🛣️ Driveway<br>₹3L</button>
+            <button id="btn-car" class="build-btn" onclick="selectTool('car', 5000000, 0xc0392b)">🏎️ Sports Car<br>₹50L</button>
             <button id="btn-pool" class="build-btn" onclick="selectTool('pool', 2500000, 0x1e90ff)">🏊 Pool<br>₹25L</button>
             <button id="btn-eraser" class="build-btn eraser" onclick="selectTool('eraser', 0, 0x000000)">🧹 Eraser</button>
         </div>
@@ -212,6 +214,7 @@
         let autoTimeRunning = false;
         let isRaining = false;
         let placedObjects = [];
+        let lightFixtures = [];
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87ceeb);
@@ -288,7 +291,7 @@
         function updateAnalytics() {
             let walls = placedObjects.filter(p => p.type === 'wall' || p.type === 'glass').length;
             let pillars = placedObjects.filter(p => p.type === 'pillar').length;
-            let furniture = placedObjects.filter(p => p.type === 'sofa' || p.type === 'bed' || p.type === 'kitchen' || p.type === 'pool' || p.type === 'tree').length;
+            let furniture = placedObjects.filter(p => p.type === 'sofa' || p.type === 'bed' || p.type === 'kitchen' || p.type === 'pool' || p.type === 'tree' || p.type === 'light' || p.type === 'car').length;
             let tanks = placedObjects.filter(p => p.type === 'tank').length;
             let pipes = placedObjects.filter(p => p.type === 'pipe').length;
             let generators = placedObjects.filter(p => p.type === 'generator').length;
@@ -303,7 +306,7 @@
             stabEl.innerText = stability + "%";
             stabEl.style.color = stability < 70 ? "#e74c3c" : (stability < 90 ? "#f39c12" : "#00d2d3");
 
-            let comfortScore = furniture * 12 + placedObjects.filter(p => p.type === 'marble' || p.type === 'driveway').length * 5 + hvac * 25;
+            let comfortScore = furniture * 12 + placedObjects.filter(p => p.type === 'marble' || p.type === 'driveway' || p.type === 'pool').length * 8 + hvac * 25;
             document.getElementById('comfort-display').innerText = comfortScore + " Score";
 
             let psi = tanks * 35 + pipes * 5;
@@ -311,7 +314,7 @@
             document.getElementById('water-display').innerText = psi + " PSI";
 
             let powerSupplyKW = generators * 50 + solar * 15;
-            let powerDemandKW = hvac * 12 + furniture * 3 + tanks * 5;
+            let powerDemandKW = hvac * 12 + furniture * 2 + tanks * 5;
             const pwrEl = document.getElementById('power-display');
             pwrEl.innerText = `${powerDemandKW} / ${powerSupplyKW} kW`;
             pwrEl.style.color = powerDemandKW > powerSupplyKW ? "#e74c3c" : "#f1c40f";
@@ -340,7 +343,13 @@
             sunLight.position.x = Math.cos(sunAngle) * 30;
             sunLight.position.y = Math.sin(sunAngle) * 30;
 
-            if (timeOfDay >= 6 && timeOfDay < 18) {
+            let isNight = timeOfDay < 6 || timeOfDay >= 18;
+
+            lightFixtures.forEach(pLight => {
+                pLight.intensity = isNight ? 2.0 : 0.0;
+            });
+
+            if (!isNight) {
                 scene.background.setHex(0x87ceeb);
                 scene.fog.color.setHex(0x87ceeb);
                 sunLight.intensity = 1.0;
@@ -358,8 +367,6 @@
         function toggleWeather() {
             isRaining = !isRaining;
             rainSystem.visible = isRaining;
-            document.getElementById('weather-display').innerText = isRaining ? "Heavy Rain" : "Sunny";
-            document.getElementById('weather-display').style.color = isRaining ? "#00d2d3" : "#4cd137";
             updateAnalytics();
         }
 
@@ -406,6 +413,9 @@
             } else if (type === 'marble' || type === 'driveway') {
                 previewMesh.geometry.dispose();
                 previewMesh.geometry = new THREE.BoxGeometry(3, 0.1, 3);
+            } else if (type === 'light') {
+                previewMesh.geometry.dispose();
+                previewMesh.geometry = new THREE.SphereGeometry(0.4, 16, 16);
             } else if (type === 'sofa') {
                 previewMesh.geometry.dispose();
                 previewMesh.geometry = new THREE.BoxGeometry(2, 0.8, 1);
@@ -433,6 +443,9 @@
             } else if (type === 'tree') {
                 previewMesh.geometry.dispose();
                 previewMesh.geometry = new THREE.ConeGeometry(1, 3, 8);
+            } else if (type === 'car') {
+                previewMesh.geometry.dispose();
+                previewMesh.geometry = new THREE.BoxGeometry(2.2, 0.8, 4.2);
             } else if (type === 'pool') {
                 previewMesh.geometry.dispose();
                 previewMesh.geometry = new THREE.BoxGeometry(4, 0.8, 4);
@@ -456,8 +469,10 @@
                     let hOffset = activeFloorElevation + 0.4;
                     if (currentTool.type === 'pool') hOffset = -0.3;
                     if (currentTool.type === 'pipe' || currentTool.type === 'marble' || currentTool.type === 'driveway') hOffset = activeFloorElevation + 0.05;
+                    if (currentTool.type === 'light') hOffset = activeFloorElevation + 1.8;
                     if (currentTool.type === 'tank' || currentTool.type === 'generator' || currentTool.type === 'hvac') hOffset = activeFloorElevation + 0.6;
                     if (currentTool.type === 'tree') hOffset = activeFloorElevation + 1.5;
+                    if (currentTool.type === 'car') hOffset = activeFloorElevation + 0.4;
                     if (currentTool.type === 'solar') hOffset = activeFloorElevation + 2.1;
                     if (currentTool.type === 'wall' || currentTool.type === 'glass' || currentTool.type === 'pillar') hOffset = activeFloorElevation + 1.0;
                     previewMesh.position.set(Math.round(point.x), hOffset, Math.round(point.z));
@@ -480,6 +495,12 @@
                     const index = placedObjects.findIndex(p => p.mesh === hitMesh);
                     if (index !== -1) {
                         playSound('delete');
+                        
+                        if (placedObjects[index].pointLight) {
+                            scene.remove(placedObjects[index].pointLight);
+                            lightFixtures = lightFixtures.filter(l => l !== placedObjects[index].pointLight);
+                        }
+
                         scene.remove(hitMesh);
                         budget += Math.floor(placedObjects[index].cost * 0.5);
                         estateValue -= placedObjects[index].cost;
@@ -503,7 +524,7 @@
 
                 playSound('build');
                 const point = intersects[0].point;
-                let geometry, material, mesh;
+                let geometry, material, mesh, pointLightObj = null;
                 let snapX = Math.round(point.x);
                 let snapZ = Math.round(point.z);
                 let hOffset = activeFloorElevation + 0.4;
@@ -528,6 +549,15 @@
                     geometry = new THREE.BoxGeometry(3, 2, 0.4);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, transparent: true, opacity: 0.4, roughness: 0.1 });
                     hOffset = activeFloorElevation + 1.0;
+                } else if (currentTool.type === 'light') {
+                    geometry = new THREE.SphereGeometry(0.3, 16, 16);
+                    material = new THREE.MeshBasicMaterial({ color: 0xfff0a5 });
+                    hOffset = activeFloorElevation + 1.8;
+
+                    pointLightObj = new THREE.PointLight(0xfff0a5, 0.0, 10);
+                    pointLightObj.position.set(snapX, hOffset, snapZ);
+                    scene.add(pointLightObj);
+                    lightFixtures.push(pointLightObj);
                 } else if (currentTool.type === 'sofa') {
                     geometry = new THREE.BoxGeometry(2, 0.8, 1);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.8 });
@@ -561,6 +591,10 @@
                     geometry = new THREE.ConeGeometry(1, 3, 8);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.9 });
                     hOffset = activeFloorElevation + 1.5;
+                } else if (currentTool.type === 'car') {
+                    geometry = new THREE.BoxGeometry(2.2, 0.8, 4.2);
+                    material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.1, metalness: 0.8 });
+                    hOffset = activeFloorElevation + 0.4;
                 } else if (currentTool.type === 'pool') {
                     geometry = new THREE.BoxGeometry(4, 0.8, 4);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.1, transparent: true, opacity: 0.8 });
@@ -573,7 +607,7 @@
                 mesh.position.set(snapX, hOffset, snapZ);
                 scene.add(mesh);
 
-                placedObjects.push({ mesh: mesh, type: currentTool.type, cost: currentTool.cost });
+                placedObjects.push({ mesh: mesh, type: currentTool.type, cost: currentTool.cost, pointLight: pointLightObj });
 
                 budget -= currentTool.cost;
                 estateValue += currentTool.cost;
