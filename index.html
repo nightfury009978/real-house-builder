@@ -161,16 +161,18 @@
             <button id="btn-pillar" class="build-btn" onclick="selectTool('pillar', 200000, 0x555555)">🏛️ Pillar<br>₹2L</button>
             <button id="btn-marble" class="build-btn" onclick="selectTool('marble', 1500000, 0xf5f5f5)">✨ Marble Floor<br>₹15L</button>
             <button id="btn-glass" class="build-btn" onclick="selectTool('glass', 800000, 0x88ccff)">🪟 Glass Panel<br>₹8L</button>
-            <button id="btn-sofa" class="build-btn" onclick="selectTool('sofa', 300000, 0xd63031)">🛋️ Luxury Sofa<br>₹3L</button>
-            <button id="btn-bed" class="build-btn" onclick="selectTool('bed', 500000, 0x6c5ce7)">🛏️ King Bed<br>₹5L</button>
-            <button id="btn-kitchen" class="build-btn" onclick="selectTool('kitchen', 800000, 0x00cec9)">🍳 Kitchen Counter<br>₹8L</button>
+            <button id="btn-sofa" class="build-btn" onclick="selectTool('sofa', 300000, 0xd63031)">🛋️ Sofa<br>₹3L</button>
+            <button id="btn-bed" class="build-btn" onclick="selectTool('bed', 500000, 0x6c5ce7)">🛏️ Bed<br>₹5L</button>
+            <button id="btn-kitchen" class="build-btn" onclick="selectTool('kitchen', 800000, 0x00cec9)">🍳 Kitchen<br>₹8L</button>
             <button id="btn-tank" class="build-btn" onclick="selectTool('tank', 400000, 0x0984e3)">🚰 Water Tank<br>₹4L</button>
             <button id="btn-pipe" class="build-btn" onclick="selectTool('pipe', 50000, 0x74b9ff)">🔧 Pipe Line<br>₹50K</button>
             <button id="btn-generator" class="build-btn" onclick="selectTool('generator', 1000000, 0xd35400)">⚡ Power Gen<br>₹10L</button>
             <button id="btn-hvac" class="build-btn" onclick="selectTool('hvac', 1200000, 0x16a085)">❄️ HVAC AC<br>₹12L</button>
-            <button id="btn-solar" class="build-btn" onclick="selectTool('solar', 3000000, 0x1a237e)">☀️ Solar Array<br>₹30L</button>
+            <button id="btn-solar" class="build-btn" onclick="selectTool('solar', 3000000, 0x1a237e)">☀️ Solar<br>₹30L</button>
+            <button id="btn-tree" class="build-btn" onclick="selectTool('tree', 200000, 0x27ae60)">🌳 Palm Tree<br>₹2L</button>
+            <button id="btn-driveway" class="build-btn" onclick="selectTool('driveway', 300000, 0x7f8c8d)">🛣️ Driveway<br>₹3L</button>
             <button id="btn-pool" class="build-btn" onclick="selectTool('pool', 2500000, 0x1e90ff)">🏊 Pool<br>₹25L</button>
-            <button id="btn-eraser" class="build-btn eraser" onclick="selectTool('eraser', 0, 0x000000)">🧹 Demolish /<br>Eraser</button>
+            <button id="btn-eraser" class="build-btn eraser" onclick="selectTool('eraser', 0, 0x000000)">🧹 Eraser</button>
         </div>
     </div>
 
@@ -205,7 +207,7 @@
         let budget = localStorage.getItem('house_budget') ? parseInt(localStorage.getItem('house_budget')) : 1000000000;
         let estateValue = localStorage.getItem('house_value') ? parseInt(localStorage.getItem('house_value')) : 0;
         let currentTool = null;
-        let activeFloorElevation = 0; // Current active floor height
+        let activeFloorElevation = 0;
         let timeOfDay = 12;
         let autoTimeRunning = false;
         let isRaining = false;
@@ -286,7 +288,7 @@
         function updateAnalytics() {
             let walls = placedObjects.filter(p => p.type === 'wall' || p.type === 'glass').length;
             let pillars = placedObjects.filter(p => p.type === 'pillar').length;
-            let furniture = placedObjects.filter(p => p.type === 'sofa' || p.type === 'bed' || p.type === 'kitchen' || p.type === 'pool').length;
+            let furniture = placedObjects.filter(p => p.type === 'sofa' || p.type === 'bed' || p.type === 'kitchen' || p.type === 'pool' || p.type === 'tree').length;
             let tanks = placedObjects.filter(p => p.type === 'tank').length;
             let pipes = placedObjects.filter(p => p.type === 'pipe').length;
             let generators = placedObjects.filter(p => p.type === 'generator').length;
@@ -301,7 +303,7 @@
             stabEl.innerText = stability + "%";
             stabEl.style.color = stability < 70 ? "#e74c3c" : (stability < 90 ? "#f39c12" : "#00d2d3");
 
-            let comfortScore = furniture * 15 + placedObjects.filter(p => p.type === 'marble').length * 5 + hvac * 25;
+            let comfortScore = furniture * 12 + placedObjects.filter(p => p.type === 'marble' || p.type === 'driveway').length * 5 + hvac * 25;
             document.getElementById('comfort-display').innerText = comfortScore + " Score";
 
             let psi = tanks * 35 + pipes * 5;
@@ -401,7 +403,7 @@
             } else if (type === 'pillar') {
                 previewMesh.geometry.dispose();
                 previewMesh.geometry = new THREE.CylinderGeometry(0.4, 0.4, 3, 16);
-            } else if (type === 'marble') {
+            } else if (type === 'marble' || type === 'driveway') {
                 previewMesh.geometry.dispose();
                 previewMesh.geometry = new THREE.BoxGeometry(3, 0.1, 3);
             } else if (type === 'sofa') {
@@ -428,6 +430,9 @@
             } else if (type === 'solar') {
                 previewMesh.geometry.dispose();
                 previewMesh.geometry = new THREE.BoxGeometry(2.5, 0.2, 2.5);
+            } else if (type === 'tree') {
+                previewMesh.geometry.dispose();
+                previewMesh.geometry = new THREE.ConeGeometry(1, 3, 8);
             } else if (type === 'pool') {
                 previewMesh.geometry.dispose();
                 previewMesh.geometry = new THREE.BoxGeometry(4, 0.8, 4);
@@ -450,9 +455,9 @@
                     const point = intersects[0].point;
                     let hOffset = activeFloorElevation + 0.4;
                     if (currentTool.type === 'pool') hOffset = -0.3;
-                    if (currentTool.type === 'pipe') hOffset = activeFloorElevation + 0.05;
-                    if (currentTool.type === 'marble') hOffset = activeFloorElevation + 0.05;
+                    if (currentTool.type === 'pipe' || currentTool.type === 'marble' || currentTool.type === 'driveway') hOffset = activeFloorElevation + 0.05;
                     if (currentTool.type === 'tank' || currentTool.type === 'generator' || currentTool.type === 'hvac') hOffset = activeFloorElevation + 0.6;
+                    if (currentTool.type === 'tree') hOffset = activeFloorElevation + 1.5;
                     if (currentTool.type === 'solar') hOffset = activeFloorElevation + 2.1;
                     if (currentTool.type === 'wall' || currentTool.type === 'glass' || currentTool.type === 'pillar') hOffset = activeFloorElevation + 1.0;
                     previewMesh.position.set(Math.round(point.x), hOffset, Math.round(point.z));
@@ -515,6 +520,10 @@
                     geometry = new THREE.BoxGeometry(3, 0.1, 3);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.1 });
                     hOffset = activeFloorElevation + 0.05;
+                } else if (currentTool.type === 'driveway') {
+                    geometry = new THREE.BoxGeometry(3, 0.05, 3);
+                    material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.9 });
+                    hOffset = activeFloorElevation + 0.03;
                 } else if (currentTool.type === 'glass') {
                     geometry = new THREE.BoxGeometry(3, 2, 0.4);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, transparent: true, opacity: 0.4, roughness: 0.1 });
@@ -548,6 +557,10 @@
                     geometry = new THREE.BoxGeometry(2.5, 0.2, 2.5);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.2, metalness: 0.8 });
                     hOffset = activeFloorElevation + 2.1;
+                } else if (currentTool.type === 'tree') {
+                    geometry = new THREE.ConeGeometry(1, 3, 8);
+                    material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.9 });
+                    hOffset = activeFloorElevation + 1.5;
                 } else if (currentTool.type === 'pool') {
                     geometry = new THREE.BoxGeometry(4, 0.8, 4);
                     material = new THREE.MeshStandardMaterial({ color: currentTool.color, roughness: 0.1, transparent: true, opacity: 0.8 });
